@@ -13,6 +13,7 @@ spark = SparkSession.builder \
 # Paths where the matrices are stored in HDFS
 matrix_A_path = "hdfs://hadoop-namenode:9820/project/matrix_As.csv"
 matrix_B_path = "hdfs://hadoop-namenode:9820/project/matrix_Bs.csv"
+multiplied_output_path = "hdfs://hadoop-namenode:9820/project/multiplied_outputs/multiplied_matrixs.csv"
 
 # Load the matrices from CSV in HDFS
 try:
@@ -22,6 +23,13 @@ except Exception as e:
     print(f"Error loading matrices: {e}")
     spark.stop()
     exit(1)
+
+# Rename the columns if necessary
+if 'vector' not in df_A.columns:
+    df_A = df_A.withColumnRenamed(df_A.columns[1], "vector")  # Assuming the second column contains the vector
+
+if 'vector' not in df_B.columns:
+    df_B = df_B.withColumnRenamed(df_B.columns[1], "vector")  # Assuming the second column contains the vector
 
 # Convert vectors (stored as strings) back to arrays
 def string_to_array(vector_str):
@@ -39,12 +47,42 @@ except Exception as e:
     spark.stop()
     exit(1)
 
-# Perform matrix multiplication
+# Determine the dimensions
+num_rows_A = df_A.count()
+num_cols_A = len(df_A.select("vector").first()[0])  # Assuming all rows have the same length
+num_rows_B = len(matrix_B)
+num_cols_B = 1  # Since it's a column vector
+
+print(f"Matrix A dimensions: {num_rows_A} x {num_cols_A}")
+print(f"Matrix B dimensions: {num_rows_B} x {num_cols_B}")
+
+# Determine the minimum size for multiplication
+min_rows = min(num_rows_A, num_rows_B)
+min_cols = min(num_cols_A, num_cols_B)
+
+# Adjust matrices to the minimum size for multiplication
+if num_rows_A > min_rows:
+    df_A = df_A.limit(min_rows)
+
+if num_rows_B > min_rows:
+    matrix_B = matrix_B[:min_rows]  # Trim matrix B to match the number of rows
+
+# Calculate the chunk size (size of matrix A / 50)
+chunk_size = max(1, min_rows // 50)  # Ensure at least chunk size of 1
+
+# Initialize an empty list to store results
 result_rows = []
-for row in df_A.select("vector").rdd.collect():
-    a_vector = np.array(row[0])
-    result_row = np.dot(a_vector, matrix_B)
-    result_rows.append(result_row.tolist())
+
+for start in range(0, min_rows, chunk_size):
+    end = min(start + chunk_size, min_rows)
+    chunk = df_A.select("vector").rdd.zipWithIndex().filter(lambda x: start <= x[1] < end).map(lambda x: x[0]).collect()
+    
+    for row in chunk:
+        a_vector = np.array(row[0][:min_cols])  # Use only the elements up to min_cols
+        result_row = np.dot(a_vector, matrix_B[:min_cols])  # Use only the elements up to min_cols
+        result_rows.append(result_row.tolist())
+
+    print(f"Processed rows {start} to {end}")
 
 # Create DataFrame from the result
 result_df = spark.createDataFrame(result_rows, schema=["multiplied_vector"])
@@ -57,9 +95,8 @@ result_df.printSchema()
 result_df.show(truncate=False)
 
 # Save the multiplied result back to HDFS as CSV
-multiplied_output_path = "hdfs://hadoop-namenode:9820/project/multiplied_outputs/multiplied_matrixs.csv"
 try:
-    result_df.write.mode("overwrite").option("header", "true").csv(multiplied_output_path)
+    result_df.write.mode("append").option("header", True).csv(multiplied_output_path)
     print(f"Multiplied matrix saved to HDFS at {multiplied_output_path}")
 except Exception as e:
     print(f"An error occurred while saving the DataFrame: {e}")

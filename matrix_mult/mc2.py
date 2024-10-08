@@ -6,8 +6,8 @@ import numpy as np
 spark = SparkSession.builder.appName("MatrixGeneration").getOrCreate()
 
 # Matrix dimensions
-matrix_A_size = (1000, 1000)
-matrix_B_size = (1000, 1)
+matrix_A_size = (5000, 5000)
+matrix_B_size = (5000, 1)
 
 # Generate random matrices using NumPy
 matrix_A = np.random.rand(*matrix_A_size)
@@ -31,8 +31,8 @@ df_B = spark.createDataFrame(data_B, ["index", "vector"])
 # print(f"Matrix B (1000x4) saved to HDFS at {output_B_path}")
 
 # Save DataFrames as CSV (for better visualization)
-output_A_path = "hdfs://hadoop-namenode:9820/project/matrix_A.csv"
-output_B_path = "hdfs://hadoop-namenode:9820/project/matrix_B.csv"
+output_A_path = "hdfs://hadoop-namenode:9820/project/matrix_A1.csv"
+output_B_path = "hdfs://hadoop-namenode:9820/project/matrix_B1.csv"
 
 # Convert list of floats to string for CSV storage
 df_A = df_A.withColumn("vector", df_A["vector"].cast("string"))
