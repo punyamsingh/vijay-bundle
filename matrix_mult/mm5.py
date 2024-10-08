@@ -11,8 +11,8 @@ spark = SparkSession.builder \
     .getOrCreate()
 
 # Paths where the matrices are stored in HDFS
-matrix_A_path = "hdfs://hadoop-namenode:9820/project/matrix_As.csv"
-matrix_B_path = "hdfs://hadoop-namenode:9820/project/matrix_Bs.csv"
+matrix_A_path = "hdfs://hadoop-namenode:9820/project/matrix_Ay.csv"
+matrix_B_path = "hdfs://hadoop-namenode:9820/project/matrix_By.csv"
 
 # Load the matrices from CSV in HDFS
 try:
@@ -57,7 +57,7 @@ result_df.printSchema()
 result_df.show(truncate=False)
 
 # Save the multiplied result back to HDFS as CSV
-multiplied_output_path = "hdfs://hadoop-namenode:9820/project/multiplied_outputs/multiplied_matrixs.csv"
+multiplied_output_path = "hdfs://hadoop-namenode:9820/project/multiplied_matrix_output_append.csv"
 try:
     result_df.write.mode("overwrite").option("header", "true").csv(multiplied_output_path)
     print(f"Multiplied matrix saved to HDFS at {multiplied_output_path}")
