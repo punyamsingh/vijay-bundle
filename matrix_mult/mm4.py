@@ -4,7 +4,7 @@ from pyspark.sql.types import ArrayType, FloatType
 import numpy as np
 
 # Create Spark session
-spark = SparkSession.builder.appName("MatrixMultiplication").getOrCreate()
+spark = SparkSession.builder.appName("MatrixMultiplication").master("spark://10.58.0.158:7077").getOrCreate()
 
 # Paths where the matrices are stored in HDFS
 matrix_A_path = "hdfs://hadoop-namenode:9820/project/matrix_A.csv"
