@@ -8,17 +8,17 @@ spark = SparkSession.builder \
     .getOrCreate()
 
 # Matrix dimensions
-total_rows = 2000
-columns_A = 2000
+total_rows = 4000
+columns_A = 4000
 columns_B = 1
 
 # Output paths for matrices
-output_A_path = "hdfs://hadoop-namenode:9820/project/matrix_A4.csv"
-output_B_path = "hdfs://hadoop-namenode:9820/project/matrix_B4.csv"
+output_A_path = "hdfs://hadoop-namenode:9820/project/matrix_A6.csv"
+output_B_path = "hdfs://hadoop-namenode:9820/project/matrix_B6.csv"
 
 # Generate random matrices using NumPy
-matrix_A = np.random.rand(total_rows, columns_A)  # Matrix A (5000 x 5000)
-matrix_B = np.random.rand(total_rows, columns_B)  # Matrix B (5000 x 1)
+matrix_A = np.random.rand(total_rows, columns_A)  # Matrix A (2000 x 2000)
+matrix_B = np.random.rand(total_rows, columns_B)  # Matrix B (2000 x 1)
 
 # Convert matrices to list of rows for Spark DataFrame
 data_A = [(int(i), [int(x * 100) for x in row]) for i, row in enumerate(matrix_A)]
@@ -41,6 +41,24 @@ try:
     print(f"Matrix B saved to {output_B_path}")
 except Exception as e:
     print(f"Error while saving DataFrames: {e}")
+
+# Function to get dimensions of a DataFrame
+def get_dimensions(file_path):
+    try:
+        df = spark.read.option("header", "true").csv(file_path)
+        num_rows = df.count()
+        num_cols = len(df.columns)
+        return num_rows, num_cols
+    except Exception as e:
+        print(f"Error reading {file_path}: {e}")
+        return 0, 0
+
+# Get and print the dimensions of the saved matrices
+rows_A, cols_A = get_dimensions(output_A_path)
+rows_B, cols_B = get_dimensions(output_B_path)
+
+print(f"Final dimensions of Matrix A: {rows_A} x {cols_A}")
+print(f"Final dimensions of Matrix B: {rows_B} x {cols_B}")
 
 # Stop the Spark session
 spark.stop()

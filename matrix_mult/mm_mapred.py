@@ -5,7 +5,7 @@ import numpy as np
 
 # Create Spark session with HDFS configuration
 spark = SparkSession.builder \
-    .appName("MatrixMultiplication") \
+    .appName("MatrixMultiplication_12core") \
     .master("spark://10.58.0.158:7077") \
     .config("spark.hadoop.fs.defaultFS", "hdfs://hadoop-namenode:9820") \
     .getOrCreate()
@@ -39,27 +39,26 @@ except Exception as e:
     spark.stop()
     exit(1)
 
-# Perform matrix multiplication
-result_rows = []
-for row in df_A.select("vector").rdd.collect():
-    a_vector = np.array(row[0])
-    result_row = np.dot(a_vector, matrix_B)
-    result_rows.append(result_row.tolist())
+# Perform matrix multiplication using parallelized dot product
+def multiply_row_with_matrix(a_vector, matrix_B):
+    return np.dot(a_vector, matrix_B).tolist()
 
-# Create DataFrame from the result
-result_df = spark.createDataFrame(result_rows, schema=["multiplied_vector"])
+multiply_udf = udf(lambda a: multiply_row_with_matrix(a, matrix_B), ArrayType(FloatType()))
+
+# Apply UDF to perform the matrix multiplication
+df_result = df_A.withColumn("multiplied_vector", multiply_udf("vector"))
 
 # Convert the multiplied vector to a string for CSV storage
-result_df = result_df.withColumn("multiplied_vector", result_df["multiplied_vector"].cast("string"))
+df_result = df_result.withColumn("multiplied_vector", df_result["multiplied_vector"].cast("string"))
 
 # Check the DataFrame before writing to HDFS
-result_df.printSchema()
-result_df.show(truncate=False)
+df_result.printSchema()
+df_result.show(truncate=False)
 
 # Save the multiplied result back to HDFS as CSV
-multiplied_output_path = "hdfs://hadoop-namenode:9820/project/multiplied_matrix_output_3000.csv"
+multiplied_output_path = "hdfs://hadoop-namenode:9820/project/multiplied_matrix_output_mapred_12core.csv"
 try:
-    result_df.write.mode("overwrite").option("header", "true").csv(multiplied_output_path)
+    df_result.write.mode("overwrite").option("header", "true").csv(multiplied_output_path)
     print(f"Multiplied matrix saved to HDFS at {multiplied_output_path}")
 except Exception as e:
     print(f"An error occurred while saving the DataFrame: {e}")
